@@ -1,0 +1,78 @@
+# WinKeySwitch
+Небольшая утилита для Windows, которая переназначает клавишу **Win** (Left/Right) на переключение раскладки клавиатуры через вашу системную комбинацию **Alt+Shift**.
+
+Технически это:
+- low-level keyboard hook (`WH_KEYBOARD_LL`), который перехватывает `LWin/RWin` и подавляет стандартное открытие меню «Пуск»;
+- переключение раскладки делается через `SendInput` (эмуляция `Alt+Shift`), чтобы работать так же, как «настоящее» нажатие.
+
+Важно: многие игры/античиты могут считать любые перехватчики ввода «подозрительными». Используйте на свой риск.
+
+## Требования
+- Windows 10/11
+- .NET SDK 8 (для сборки из исходников)
+
+## Сборка
+```powershell
+# из папки проекта
+$env:PATH = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
+
+dotnet build .\WinKeySwitch.csproj -c Release
+```
+
+Готовый бинарник будет здесь:
+`bin\Release\net8.0-windows\WinKeySwitch.exe`
+
+## Запуск
+```powershell
+Start-Process .\bin\Release\net8.0-windows\WinKeySwitch.exe
+```
+
+Использование:
+- нажмите **Win** «тапом» (нажал/отпустил) — раскладка переключится;
+- меню «Пуск» на Win при этом открываться не будет.
+
+## Автозагрузка
+Есть два надёжных варианта автозапуска.
+
+### Вариант A: через реестр (рекомендуется)
+```powershell
+$exe = (Resolve-Path .\bin\Release\net8.0-windows\WinKeySwitch.exe).Path
+New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WinKeySwitch" -PropertyType String -Value "`"$exe`"" -Force | Out-Null
+```
+
+### Вариант B: ярлык в папке Startup
+```powershell
+$exe = (Resolve-Path .\bin\Release\net8.0-windows\WinKeySwitch.exe).Path
+$startup = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("$startup\WinKeySwitch.lnk")
+$Shortcut.TargetPath = $exe
+$Shortcut.WorkingDirectory = Split-Path $exe
+$Shortcut.Save()
+```
+
+## Остановка / удаление
+Остановить процесс:
+```powershell
+Stop-Process -Name WinKeySwitch -ErrorAction SilentlyContinue
+```
+
+Убрать из автозагрузки (реестр):
+```powershell
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WinKeySwitch" -ErrorAction SilentlyContinue
+```
+
+Убрать ярлык из Startup:
+```powershell
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WinKeySwitch.lnk" -ErrorAction SilentlyContinue
+```
+
+## Логи
+Приложение пишет лог в:
+`%LOCALAPPDATA%\WinKeySwitch\WinKeySwitch.log`
+
+Полезно для диагностики (например, если `SendInput` возвращает ошибку).
+
+## Примечания
+- Утилита ориентируется на то, что в настройках Windows переключение раскладки назначено на **Alt+Shift**.
+- Некоторые приложения/игры могут блокировать перехват ввода.
