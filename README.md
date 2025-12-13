@@ -5,8 +5,9 @@
 A lightweight Windows utility that remaps the **Win** key (Left/Right) to switch keyboard layouts using your system's **Alt+Shift** combination.
 
 Technically it:
-- Installs a low-level keyboard hook (`WH_KEYBOARD_LL`) to intercept `LWin/RWin` and suppress the default Start menu behavior
-- Switches layouts via `SendInput` (emulating `Alt+Shift`) to behave like a "real" keypress
+- Installs a low-level keyboard hook (`WH_KEYBOARD_LL`) to intercept `LWin/RWin`
+- **Solo Win press** (tap and release) switches keyboard layout via `SendInput` (emulating `Alt+Shift`)
+- **Win + other keys** (e.g., `Win+D`, `Win+E`, `Win+L`) work normally — the utility re-injects the Win key event to preserve standard Windows shortcuts
 
 **Important**: Many games/anti-cheats may flag any input hooks as suspicious. Use at your own risk.
 
@@ -31,8 +32,8 @@ Start-Process .\bin\Release\net8.0-windows\WinKeySwitch.exe
 ```
 
 Usage:
-- Press **Win** with a quick tap (press/release) — the keyboard layout will switch
-- The Start menu will not open when pressing Win
+- Press **Win** solo (quick tap: press/release without other keys) — the keyboard layout will switch, Start menu will not open
+- **Win + other keys** (e.g., `Win+D`, `Win+E`, `Win+L`, `Win+1-9`) work as usual — all standard Windows shortcuts are preserved
 
 ## Autostart
 Two reliable autostart methods are available.

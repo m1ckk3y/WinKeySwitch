@@ -16,7 +16,11 @@ class Program
     private const int VK_LWIN = 0x5B;
     private const int VK_RWIN = 0x5C;
 
+    // Магическая метка для наших синтетических Win-событий
+    private static readonly IntPtr SYNTHETIC_MARKER = new IntPtr(0x57494E4B); // "WINK"
+
     private static bool _winIsDown = false;
+    private static bool _otherKeyPressed = false;
     private static long _lastSwitchTick = 0;
     private static int _switchInFlight = 0;
 
@@ -33,6 +37,9 @@ class Program
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string lpModuleName);
 
@@ -46,6 +53,9 @@ class Program
     // Сканкоды для левых Alt/Shift: надежнее, чем VK_L*.
     private const ushort SC_LALT = 0x38;
     private const ushort SC_LSHIFT = 0x2A;
+
+    // Для эмуляции Win при комбинациях
+    private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
 
     private static readonly string _logPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -144,25 +154,55 @@ class Program
             int msg = wParam.ToInt32();
             int vkCode = Marshal.ReadInt32(lParam);
 
+            // Читаем dwExtraInfo из KBDLLHOOKSTRUCT (offset +16 для x64, +12 для x86)
+            IntPtr extraInfo = Marshal.ReadIntPtr(lParam, IntPtr.Size == 8 ? 16 : 12);
+
             if (vkCode == VK_LWIN || vkCode == VK_RWIN)
             {
-                // Переключаем только при отпускании Win,
-                // чтобы не было автоповтора и лагов/зависаний в приложениях.
+                // Если это наше синтетическое событие — пропускаем дальше
+                if (extraInfo == SYNTHETIC_MARKER)
+                {
+                    return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                }
+
                 if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
                 {
                     _winIsDown = true;
-                    return (IntPtr)1; // глушим Win-down
+                    _otherKeyPressed = false;
+                    // Блокируем оригинальный Win-down
+                    return (IntPtr)1;
                 }
 
                 if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
                 {
-                    if (_winIsDown)
-                    {
-                        _winIsDown = false;
-                        QueueSwitchKeyboardLayout();
-                    }
+                    bool wasSolo = _winIsDown && !_otherKeyPressed;
+                    _winIsDown = false;
+                    _otherKeyPressed = false;
 
-                    return (IntPtr)1; // глушим Win-up
+                    if (wasSolo)
+                    {
+                        // Win соло → переключаем раскладку
+                        QueueSwitchKeyboardLayout();
+                        return (IntPtr)1; // блокируем Win-up
+                    }
+                    else
+                    {
+                        // Была комбинация → пропускаем синтетический Win-up
+                        return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                    }
+                }
+            }
+            else
+            {
+                // Любая другая клавиша, пока Win зажат → комбинация
+                if (_winIsDown && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN))
+                {
+                    if (!_otherKeyPressed)
+                    {
+                        // Первая клавиша после Win → переинжектим Win
+                        _otherKeyPressed = true;
+                        ReinjectWinKey();
+                    }
                 }
             }
         }
@@ -256,6 +296,31 @@ class Program
             }
         }
     };
+
+    private static void ReinjectWinKey()
+    {
+        // Синтетически эмулируем Win-down, чтобы комбинация Win+X сработала
+        var inputs = new INPUT[]
+        {
+            new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                U = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = (ushort)VK_LWIN,
+                        wScan = 0,
+                        dwFlags = KEYEVENTF_EXTENDEDKEY,
+                        time = 0,
+                        dwExtraInfo = SYNTHETIC_MARKER
+                    }
+                }
+            }
+        };
+
+        SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+    }
 
     private static void Log(string message)
     {
