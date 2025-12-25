@@ -15,30 +15,31 @@
 - Windows 10/11
 - .NET SDK 8 (для сборки из исходников)
 
-## Сборка
+## Установка
+
+### Вариант 1: через инсталлятор (рекомендуется)
+- Скачайте `WinKeySwitchSetup.exe` из последнего релиза
+- Во время установки можно отметить чекбокс «Запускать WinKeySwitch автоматически при входе» — добавит запись в HKCU\Run
+
+### Вариант 2: из исходников
 ```powershell
 # из папки проекта
 $env:PATH = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
 
 dotnet build .\WinKeySwitch.csproj -c Release
-```
-
-Готовый бинарник будет здесь:
-`bin\Release\net8.0-windows\WinKeySwitch.exe`
-
-## Запуск
-```powershell
 Start-Process .\bin\Release\net8.0-windows\WinKeySwitch.exe
 ```
 
-Использование:
+Готовый бинарник будет здесь: `bin\Release\net8.0-windows\WinKeySwitch.exe`
+
+## Использование
 - нажмите **Win** соло (быстрый тап: нажал/отпустил без других клавиш) — раскладка переключится, меню «Пуск» не откроется
 - **Win + другие клавиши** (например, `Win+D`, `Win+E`, `Win+L`, `Win+1-9`) работают как обычно — все стандартные комбинации Windows сохранены
 
-## Автозагрузка
-Есть два надёжных варианта автозапуска.
+## Автозагрузка (вручную)
+Если пропустили чекбокс в инсталляторе — два варианта:
 
-### Вариант A: через реестр (рекомендуется)
+### Вариант A: через реестр (HKCU)
 ```powershell
 $exe = (Resolve-Path .\bin\Release\net8.0-windows\WinKeySwitch.exe).Path
 New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WinKeySwitch" -PropertyType String -Value "`"$exe`"" -Force | Out-Null

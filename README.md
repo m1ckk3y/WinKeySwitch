@@ -15,30 +15,31 @@ Technically it:
 - Windows 10/11
 - .NET SDK 8 (for building from source)
 
-## Building
+## Installation
+
+### Option 1: Installer (recommended)
+- Download `WinKeySwitchSetup.exe` from the latest release
+- Run installer → optional **checkbox** “Start WinKeySwitch automatically when I sign in” adds HKCU\Run autostart
+
+### Option 2: From source
 ```powershell
 # From the project directory
 $env:PATH = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
 
 dotnet build .\WinKeySwitch.csproj -c Release
-```
-
-The compiled binary will be at:  
-`bin\Release\net8.0-windows\WinKeySwitch.exe`
-
-## Running
-```powershell
 Start-Process .\bin\Release\net8.0-windows\WinKeySwitch.exe
 ```
 
-Usage:
+The compiled binary will be at: `bin\Release\net8.0-windows\WinKeySwitch.exe`
+
+## Usage
 - Press **Win** solo (quick tap: press/release without other keys) — the keyboard layout will switch, Start menu will not open
 - **Win + other keys** (e.g., `Win+D`, `Win+E`, `Win+L`, `Win+1-9`) work as usual — all standard Windows shortcuts are preserved
 
-## Autostart
-Two reliable autostart methods are available.
+## Autostart (manual)
+Two manual methods if you skip the installer checkbox:
 
-### Option A: via Registry (recommended)
+### Option A: via Registry (HKCU)
 ```powershell
 $exe = (Resolve-Path .\bin\Release\net8.0-windows\WinKeySwitch.exe).Path
 New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WinKeySwitch" -PropertyType String -Value "`"$exe`"" -Force | Out-Null
